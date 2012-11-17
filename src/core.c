@@ -39,7 +39,8 @@
 
 /// Sorting function for the query, sort by abs(z_norm(q[i])) from high to low
 int comp(const void *a, const void* b)
-{   struct ud_index* x = (struct ud_index*)a;
+{
+    struct ud_index* x = (struct ud_index*)a;
     struct ud_index* y = (struct ud_index*)b;
     return abs((int64_t)(y->value)) - abs((int64_t)(x->value));   // high to low
 }
