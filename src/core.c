@@ -326,7 +326,7 @@ double dtw(double* A, double* B, double *cb, int m, int r, double bsf)
 void
 error(int i)
 {
-    return;
+    exit(-1);
 }
 
 int
@@ -346,15 +346,6 @@ match(double *query, int m, double r, double *buffer, int buflen, struct ud_inde
     double  *u_buff, *l_buff;
 
     struct ud_index *Q_tmp;
-
-    if (r <= 1)
-    {
-        r = floor(r * m);
-    }
-    else
-    {
-        r = floor(r);
-    }
 
     /// malloc everything here
     q = (double *)malloc(sizeof(double) * m);
