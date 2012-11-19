@@ -38,17 +38,19 @@
 #define dist(x,y) ((x-y)*(x-y))
 
 /// Sorting function for the query, sort by abs(z_norm(q[i])) from high to low
-int comp(const void *a, const void* b)
+int
+ucr_comp(const void *a, const void* b)
 {
-    struct ud_index* x = (struct ud_index*)a;
-    struct ud_index* y = (struct ud_index*)b;
+    struct ucr_index* x = (struct ucr_index*)a;
+    struct ucr_index* y = (struct ucr_index*)b;
     return abs((int64_t)(y->value)) - abs((int64_t)(x->value));   // high to low
 }
 
 /// Finding the envelop of min and max value for LB_Keogh
 /// Implementation idea is intoruduced by Danial Lemire in his paper
 /// "Faster Retrieval with a Two-Pass Dynamic-Time-Warping Lower Bound", Pattern Recognition 42(9), 2009.
-void lower_upper_lemire(double *t, int len, int r, double *l, double *u)
+void
+ucr_lower_upper_lemire(double *t, int len, int r, double *l, double *u)
 {
     struct deque du, dl;
     int i = 0;
@@ -118,7 +120,8 @@ void lower_upper_lemire(double *t, int len, int r, double *l, double *u)
 /// However, because of z-normalization the top and bottom cannot give siginifant benefits.
 /// And using the first and last points can be computed in constant time.
 /// The prunning power of LB_Kim is non-trivial, especially when the query is not long, say in length 128.
-double lb_kim_hierarchy(double *t, double *q, int j, int len, double mean, double std, double bsf)
+double
+ucr_lb_kim_hierarchy(double *t, double *q, int j, int len, double mean, double std, double bsf)
 {
     /// 1 point at front and back
     double d, lb;
@@ -186,8 +189,9 @@ double lb_kim_hierarchy(double *t, double *q, int j, int len, double mean, doubl
 /// t     : a circular array keeping the current data.
 /// j     : index of the starting location in t
 /// cb    : (output) current bound at each position. It will be used later for early abandoning in DTW.
-double lb_keogh_cumulative(int* order, double *t, double *uo, double *lo, double *cb, int j, int len,
-                           double mean, double std, double bsf)
+double
+ucr_lb_keogh_cumulative(int* order, double *t, double *uo, double *lo, double *cb, int j, int len,
+                        double mean, double std, double bsf)
 {
     double  lb = 0;
     double  x, d;
@@ -219,8 +223,9 @@ double lb_keogh_cumulative(int* order, double *t, double *uo, double *lo, double
 /// qo: sorted query
 /// cb: (output) current bound at each position. Used later for early abandoning in DTW.
 /// l, u: lower and upper envelop of the current data
-double lb_keogh_data_cumulative(int* order, double *tz, double *qo, double *cb, double *l, double *u,
-                                int len, double mean, double std, double bsf)
+double
+ucr_lb_keogh_data_cumulative(int* order, double *tz, double *qo, double *cb, double *l, double *u,
+                             int len, double mean, double std, double bsf)
 {
     double  lb = 0;
     double  uu, ll, d;
@@ -249,7 +254,8 @@ double lb_keogh_data_cumulative(int* order, double *tz, double *qo, double *cb, 
 /// A,B: data and query, respectively
 /// cb : cummulative bound used for early abandoning
 /// r  : size of Sakoe-Chiba warpping band
-double dtw(double* A, double* B, double *cb, int m, int r, double bsf)
+double
+ucr_dtw(double* A, double* B, double *cb, int m, int r, double bsf)
 {
     double  *cost;
     double  *cost_prev;
@@ -323,14 +329,8 @@ double dtw(double* A, double* B, double *cb, int m, int r, double bsf)
     return final_dtw;
 }
 
-void
-error(int i)
-{
-    exit(-1);
-}
-
 int
-match(double *query, int m, double r, double *buffer, int buflen, struct ud_index *result)
+ucr_query(double *query, int m, double r, double *buffer, int buflen, struct ucr_index *result)
 {
     double  bsf;            /// best-so-far
     double  *t;             /// data array and query array
@@ -345,76 +345,76 @@ match(double *query, int m, double r, double *buffer, int buflen, struct ud_inde
     double  dist = 0, lb_kim = 0, lb_k = 0, lb_k2 = 0;
     double  *u_buff, *l_buff;
 
-    struct ud_index *Q_tmp;
+    struct ucr_index *Q_tmp;
 
     /// malloc everything here
     q = (double *)malloc(sizeof(double) * m);
     if( q == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     qo = (double *)malloc(sizeof(double) * m);
     if( qo == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     uo = (double *)malloc(sizeof(double) * m);
     if( uo == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     lo = (double *)malloc(sizeof(double) * m);
     if( lo == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     order = (int *)malloc(sizeof(int) * m);
     if( order == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
-    Q_tmp = (struct ud_index *)malloc(sizeof(struct ud_index) * m);
+    Q_tmp = (struct ucr_index *)malloc(sizeof(struct ucr_index) * m);
     if( Q_tmp == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     u = (double *)malloc(sizeof(double) * m);
     if( u == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     l = (double *)malloc(sizeof(double) * m);
     if( l == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     cb = (double *)malloc(sizeof(double) * m);
     if( cb == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     cb1 = (double *)malloc(sizeof(double) * m);
     if( cb1 == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     cb2 = (double *)malloc(sizeof(double) * m);
     if( cb2 == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     u_d = (double *)malloc(sizeof(double) * m);
     if( u == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     l_d = (double *)malloc(sizeof(double) * m);
     if( l == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     t = (double *)malloc(sizeof(double) * m * 2);
     if( t == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     tz = (double *)malloc(sizeof(double) * m);
     if( tz == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     u_buff = (double *)malloc(sizeof(double) * buflen);
     if( u_buff == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     l_buff = (double *)malloc(sizeof(double) * buflen);
     if( l_buff == NULL )
-        goto match_cleanup;
+        goto ucr_query_cleanup;
 
     bsf = INFINITY;
     i = j = 0;
@@ -437,7 +437,7 @@ match(double *query, int m, double r, double *buffer, int buflen, struct ud_inde
     }
 
     /// Create envelop of the query: lower envelop, l, and upper envelop, u
-    lower_upper_lemire(q, m, r, l, u);
+    ucr_lower_upper_lemire(q, m, r, l, u);
 
     /// Sort the query one time by abs(z-norm(q[i]))
     for( i = 0; i < m; i++)
@@ -445,7 +445,7 @@ match(double *query, int m, double r, double *buffer, int buflen, struct ud_inde
         Q_tmp[i].value = q[i];
         Q_tmp[i].index = i;
     }
-    qsort(Q_tmp, m, sizeof(struct ud_index), comp);
+    qsort(Q_tmp, m, sizeof(struct ucr_index), ucr_comp);
 
     /// also create another arrays for keeping sorted envelop
     for(i = 0; i < m; i++)
@@ -458,11 +458,11 @@ match(double *query, int m, double r, double *buffer, int buflen, struct ud_inde
     }
     free(Q_tmp);
 
-    /// Initial the cummulative lower bound
-    for( i=0; i<m; i++)
-    {   cb[i]=0;
-        cb1[i]=0;
-        cb2[i]=0;
+    /// Initialize the cumulative lower bound
+    for(i = 0; i < m; i++)
+    {   cb[i] = 0;
+        cb1[i] = 0;
+        cb2[i] = 0;
     }
 
     i = j = 0;
@@ -471,7 +471,7 @@ match(double *query, int m, double r, double *buffer, int buflen, struct ud_inde
     int     k = 0;
     int64_t I;    /// the starting index of the data in current chunk of size buflen
 
-    lower_upper_lemire(buffer, buflen, r, l_buff, u_buff);
+    ucr_lower_upper_lemire(buffer, buflen, r, l_buff, u_buff);
 
     for(i = 0; i < buflen; i++)
     {
@@ -501,13 +501,13 @@ match(double *query, int m, double r, double *buffer, int buflen, struct ud_inde
             I = i - (m - 1);
 
             /// Use a constant lower bound to prune the obvious subsequence
-            lb_kim = lb_kim_hierarchy(t, q, j, m, mean, std, bsf);
+            lb_kim = ucr_lb_kim_hierarchy(t, q, j, m, mean, std, bsf);
 
             if(lb_kim < bsf)
             {
                 /// Use a linear time lower bound to prune; z_normalization of t will be computed on the fly.
                 /// uo, lo are envelop of the query.
-                lb_k = lb_keogh_cumulative(order, t, uo, lo, cb1, j, m, mean, std, bsf);
+                lb_k = ucr_lb_keogh_cumulative(order, t, uo, lo, cb1, j, m, mean, std, bsf);
                 if(lb_k < bsf)
                 {
                     /// Take another linear time to compute z_normalization of t.
@@ -520,7 +520,7 @@ match(double *query, int m, double r, double *buffer, int buflen, struct ud_inde
                     /// Use another lb_keogh to prune
                     /// qo is the sorted query. tz is unsorted z_normalized data.
                     /// l_buff, u_buff are big envelop for all data in this chunk
-                    lb_k2 = lb_keogh_data_cumulative(order, tz, qo, cb2, l_buff + I, u_buff + I, m, mean, std, bsf);
+                    lb_k2 = ucr_lb_keogh_data_cumulative(order, tz, qo, cb2, l_buff + I, u_buff + I, m, mean, std, bsf);
                     if(lb_k2 < bsf)
                     {
                         /// Choose better lower bound between lb_keogh and lb_keogh2 to be used in early abandoning DTW
@@ -543,7 +543,7 @@ match(double *query, int m, double r, double *buffer, int buflen, struct ud_inde
                         }
 
                         /// Compute DTW and early abandoning if possible
-                        dist = dtw(tz, q, cb, m, r, bsf);
+                        dist = ucr_dtw(tz, q, cb, m, r, bsf);
 
                         if(dist < bsf)
                         {   /// Update bsf
@@ -560,7 +560,7 @@ match(double *query, int m, double r, double *buffer, int buflen, struct ud_inde
         }
     }
 
-match_cleanup:
+ucr_query_cleanup:
     if(u != NULL)
         free(u);
     if(l != NULL)
