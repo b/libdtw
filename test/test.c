@@ -40,7 +40,7 @@ main(int argc , char *argv[])
     double  *q, *buffer;
     FILE    *fp;
     FILE    *qp;
-    struct ud_index result;
+    struct ucr_index result;
 
     /// If not enough input, display an error.
     if (argc <= 3)
@@ -123,7 +123,7 @@ main(int argc , char *argv[])
         }
         else
         {
-            if(match(q, m, r, buffer, ep, &result) < 0)
+            if(ucr_query(q, m, r, buffer, ep, &result) < 0)
             {
                 printf("Match failed!\n");
                 exit(1);
