@@ -1,8 +1,8 @@
 PROJECT = libdtw.a
 CC=gcc
 CFLAGS=-O2 -Wall
-SOURCES=core.c deque.c
-OBJECTS=core.o deque.o
+SOURCES=ucr_dtw.c deque.c
+OBJECTS=ucr_dtw.o deque.o
 
 all: $(PROJECT)
 
