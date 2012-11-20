@@ -28,7 +28,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "core.h"
+#include "ucr_dtw.h"
 
 int
 main(int argc , char *argv[])
