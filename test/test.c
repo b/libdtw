@@ -34,9 +34,9 @@ int
 main(int argc , char *argv[])
 {
     int     i, j;
-    int     m = -1, r = -1;
+    int     m = -1;
     int     EPOCH = 100000;
-    double  d;
+    double  d, r = -1;
     double  *q, *buffer;
     FILE    *fp;
     FILE    *qp;
@@ -47,18 +47,12 @@ main(int argc , char *argv[])
         exit(1);
 
     /// read size of the query
-    if (argc > 3)
+    if (argc >= 3)
         m = atol(argv[3]);
 
     /// read warping windows
-    if (argc > 4)
-    {   
-        double R = atof(argv[4]);
-        if (R<=1)
-            r = floor(R*m);
-        else
-            r = floor(R);
-        }
+    if (argc >= 4)
+        r = atof(argv[4]);
 
     fp = fopen(argv[1],"r");
     if(fp == NULL)

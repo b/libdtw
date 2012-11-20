@@ -31,5 +31,28 @@ struct ucr_index
     int64_t     index;
 };
 
-int
-ucr_query(double *q, int m, double r, double *buffer, int buflen, struct ucr_index *result);
+struct ucr_buffer
+{
+    int32_t     len;
+    int32_t     last;
+    double      *data;
+};
+
+struct ucr_query
+{
+    int32_t         m, r;
+    int32_t         *order;
+    double          *q, *u, *l, *qo, *uo, *lo;
+};
+
+struct ucr_query*
+ucr_query_new(double* query, int32_t m, double r);
+
+void
+ucr_query_free(struct ucr_query* query);
+
+int32_t
+ucr_query_execute(struct ucr_query *query, struct ucr_buffer *buffer, struct ucr_index *result);
+
+int32_t
+ucr_query(double *q, int32_t m, double r, double *buffer, int32_t buflen, struct ucr_index *result);

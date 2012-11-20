@@ -329,156 +329,198 @@ ucr_dtw(double* A, double* B, double *cb, int m, int r, double bsf)
     return final_dtw;
 }
 
-int
-ucr_query(double *query, int m, double r, double *buffer, int buflen, struct ucr_index *result)
+struct ucr_query*
+ucr_query_new(double *query, int32_t m, double r)
 {
-    double  bsf;            /// best-so-far
-    double  *t;             /// data array and query array
-    int     *order;         /// new order of the query
-    double  *q, *u, *l, *qo, *uo, *lo,*tz,*cb, *cb1, *cb2,*u_d, *l_d;
+    int32_t             i = 0, o = 0;;
+    struct ucr_index    *q_tmp;
+    struct ucr_query    *udq;
+    double              ex = 0, ex2 = 0, mean = 0, std = 0;
 
+    udq = (struct ucr_query*)malloc(sizeof(struct ucr_query));
+    if(udq == NULL)
+        goto query_new_cleanup;
 
-    double  d;
-    int64_t i , j;
-    double  ex , ex2 , mean, std;
-    int64_t loc = 0;
-    double  dist = 0, lb_kim = 0, lb_k = 0, lb_k2 = 0;
-    double  *u_buff, *l_buff;
+    udq->q = (double *)malloc(sizeof(double) * m);
+    if(udq->q == NULL)
+        goto query_new_cleanup;
 
-    struct ucr_index *Q_tmp;
+    udq->qo = (double *)malloc(sizeof(double) * m);
+    if(udq->qo == NULL)
+        goto query_new_cleanup;
 
-    /// malloc everything here
-    q = (double *)malloc(sizeof(double) * m);
-    if( q == NULL )
-        goto ucr_query_cleanup;
+    udq->lo = (double *)malloc(sizeof(double) * m);
+    if(udq->lo == NULL)
+        goto query_new_cleanup;
 
-    qo = (double *)malloc(sizeof(double) * m);
-    if( qo == NULL )
-        goto ucr_query_cleanup;
+    udq->uo = (double *)malloc(sizeof(double) * m);
+    if(udq->uo == NULL)
+        goto query_new_cleanup;
 
-    uo = (double *)malloc(sizeof(double) * m);
-    if( uo == NULL )
-        goto ucr_query_cleanup;
+    udq->order = (int32_t *)malloc(sizeof(int32_t) * m);
+    if(udq->order == NULL)
+        goto query_new_cleanup;
 
-    lo = (double *)malloc(sizeof(double) * m);
-    if( lo == NULL )
-        goto ucr_query_cleanup;
+    udq->l = (double *)malloc(sizeof(double) * m);
+    if(udq->l == NULL)
+        goto query_new_cleanup;
 
-    order = (int *)malloc(sizeof(int) * m);
-    if( order == NULL )
-        goto ucr_query_cleanup;
+    udq->u = (double *)malloc(sizeof(double) * m);
+    if(udq->u == NULL)
+        goto query_new_cleanup;
 
-    Q_tmp = (struct ucr_index *)malloc(sizeof(struct ucr_index) * m);
-    if( Q_tmp == NULL )
-        goto ucr_query_cleanup;
-
-    u = (double *)malloc(sizeof(double) * m);
-    if( u == NULL )
-        goto ucr_query_cleanup;
-
-    l = (double *)malloc(sizeof(double) * m);
-    if( l == NULL )
-        goto ucr_query_cleanup;
-
-    cb = (double *)malloc(sizeof(double) * m);
-    if( cb == NULL )
-        goto ucr_query_cleanup;
-
-    cb1 = (double *)malloc(sizeof(double) * m);
-    if( cb1 == NULL )
-        goto ucr_query_cleanup;
-
-    cb2 = (double *)malloc(sizeof(double) * m);
-    if( cb2 == NULL )
-        goto ucr_query_cleanup;
-
-    u_d = (double *)malloc(sizeof(double) * m);
-    if( u == NULL )
-        goto ucr_query_cleanup;
-
-    l_d = (double *)malloc(sizeof(double) * m);
-    if( l == NULL )
-        goto ucr_query_cleanup;
-
-    t = (double *)malloc(sizeof(double) * m * 2);
-    if( t == NULL )
-        goto ucr_query_cleanup;
-
-    tz = (double *)malloc(sizeof(double) * m);
-    if( tz == NULL )
-        goto ucr_query_cleanup;
-
-    u_buff = (double *)malloc(sizeof(double) * buflen);
-    if( u_buff == NULL )
-        goto ucr_query_cleanup;
-
-    l_buff = (double *)malloc(sizeof(double) * buflen);
-    if( l_buff == NULL )
-        goto ucr_query_cleanup;
-
-    bsf = INFINITY;
-    i = j = 0;
-    ex = ex2 = 0;
+    /// Initialize query components
+    udq->m = m;
+    if (r <= 1)
+        udq->r = floor(r * m);
+    else
+        udq->r = floor(r);
 
     for(i = 0; i < m; i++)
     {
-        q[i] = query[i];
-        ex += q[i];
-        ex2 += q[i] * q[i];
+        udq->q[i] = query[i];
+        ex += query[i];
+        ex2 += query[i] * query[i];
     }
 
     /// Do z-normalize the query, keep in same array, q
     mean = ex / m;
     std = ex2 / m;
     std = sqrt(std - mean * mean);
-    for(i = 0 ; i < m ; i++)
+
+    for(i = 0; i < m; i++)
     {
-        q[i] = (q[i] - mean) / std;
+         udq->q[i] = (udq->q[i] - mean) / std;
     }
 
-    /// Create envelop of the query: lower envelop, l, and upper envelop, u
-    ucr_lower_upper_lemire(q, m, r, l, u);
+    /// Create envelope of the query: lower envelope, l, and upper envelope, u
+    ucr_lower_upper_lemire(udq->q, udq->m, udq->r, udq->l, udq->u);
+
+    q_tmp = (struct ucr_index*)malloc(sizeof(struct ucr_index) * m);
+    if(q_tmp == NULL)
+        goto query_new_cleanup;
 
     /// Sort the query one time by abs(z-norm(q[i]))
-    for( i = 0; i < m; i++)
-    {
-        Q_tmp[i].value = q[i];
-        Q_tmp[i].index = i;
-    }
-    qsort(Q_tmp, m, sizeof(struct ucr_index), ucr_comp);
-
-    /// also create another arrays for keeping sorted envelop
     for(i = 0; i < m; i++)
-    {   
-        int o = Q_tmp[i].index;
-        order[i] = o;
-        qo[i] = q[o];
-        uo[i] = u[o];
-        lo[i] = l[o];
+    {
+        q_tmp[i].value = udq->q[i];
+        q_tmp[i].index = i;
     }
-    free(Q_tmp);
+    qsort(q_tmp, m, sizeof(struct ucr_index), ucr_comp);
+
+    /// also create another arrays for keeping sorted envelope
+    for(i = 0; i < m; i++)
+    {
+        o = q_tmp[i].index;
+        udq->order[i] = o;
+        udq->qo[i] = udq->q[o];
+        udq->lo[i] = udq->l[o];
+        udq->uo[i] = udq->u[o];
+    }
+    free(q_tmp);
+
+    return udq;
+
+query_new_cleanup:
+    ucr_query_free(udq);
+
+    return NULL;
+}
+
+void
+ucr_query_free(struct ucr_query* query)
+{
+    if(query == NULL)
+        return;
+    if(query->q != NULL)
+        free(query->q);
+    if(query->u != NULL)
+        free(query->u);
+    if(query->l != NULL)
+        free(query->l);
+    if(query->uo != NULL)
+        free(query->uo);
+    if(query->lo != NULL)
+        free(query->lo);
+    if(query->qo != NULL)
+        free(query->qo);
+
+    return;
+}
+
+int32_t
+ucr_query_execute(struct ucr_query *query, struct ucr_buffer *buffer, struct ucr_index *result)
+{
+    double          d;
+    double          ex, ex2, mean, std, dist, bsf;
+    double          lb_kim = 0, lb_k = 0, lb_k2 = 0;
+    double          *q, *cb, *cb1, *cb2;
+    double          *qo, *uo, *lo;
+    double          *t, *tz, *u_buff, *l_buff;
+    int64_t         i = 0, j = 0, I = 0, loc = -1;
+    int32_t         *order;
+    int32_t         r, m, k = 0;
+
+    if(buffer->last < 0)
+        goto query_execute_cleanup;
+
+    dist = 0;
+    bsf = INFINITY;
+
+    q = query->q;
+    m = query->m;
+    r = query->r;
+    order = query->order;
+    qo = query->qo;
+    lo = query->lo;
+    uo = query->uo;
+
+    cb = (double *)malloc(sizeof(double) * m);
+    if(cb == NULL)
+        goto query_execute_cleanup;
+
+    cb1 = (double *)malloc(sizeof(double) * m);
+    if(cb1 == NULL)
+        goto query_execute_cleanup;
+
+    cb2 = (double *)malloc(sizeof(double) * m);
+    if(cb2 == NULL)
+        goto query_execute_cleanup;
 
     /// Initialize the cumulative lower bound
     for(i = 0; i < m; i++)
-    {   cb[i] = 0;
+    {
+        cb[i] = 0;
         cb1[i] = 0;
         cb2[i] = 0;
     }
 
-    i = j = 0;
+    t = (double *)malloc(sizeof(double) * m * 2);
+    if(t == NULL)
+        goto query_execute_cleanup;
+
+    tz = (double *)malloc(sizeof(double) * m);
+    if(tz == NULL)
+        goto query_execute_cleanup;
+
+    u_buff = (double *)malloc(sizeof(double) * (buffer->len));
+    if(u_buff == NULL)
+        goto query_execute_cleanup;
+
+    l_buff = (double *)malloc(sizeof(double) * (buffer->len));
+    if(l_buff == NULL)
+        goto query_execute_cleanup;
+
+    ucr_lower_upper_lemire(buffer->data, buffer->len, r, l_buff, u_buff);
+
+    /// Do main task here..
     ex = ex2 = 0;
-
-    int     k = 0;
-    int64_t I;    /// the starting index of the data in current chunk of size buflen
-
-    ucr_lower_upper_lemire(buffer, buflen, r, l_buff, u_buff);
-
-    for(i = 0; i < buflen; i++)
+    for(i = 0; i < buffer->len; i++)
     {
         /// A bunch of data has been read and pick one of them at a time to use
-        d = buffer[i];
+        d = buffer->data[i];
 
-        /// Calculate sum and sum square
+        /// Calcualte sum and sum square
         ex += d;
         ex2 += d * d;
 
@@ -489,7 +531,7 @@ ucr_query(double *query, int m, double r, double *buffer, int buflen, struct ucr
         t[(i % m) + m] = d;
 
         /// Start the task when there are more than m-1 points in the current chunk
-        if(i >= m - 1)
+        if( i >= m - 1 )
         {
             mean = ex / m;
             std = ex2 / m;
@@ -503,17 +545,17 @@ ucr_query(double *query, int m, double r, double *buffer, int buflen, struct ucr
             /// Use a constant lower bound to prune the obvious subsequence
             lb_kim = ucr_lb_kim_hierarchy(t, q, j, m, mean, std, bsf);
 
-            if(lb_kim < bsf)
+            if (lb_kim < bsf)
             {
                 /// Use a linear time lower bound to prune; z_normalization of t will be computed on the fly.
                 /// uo, lo are envelop of the query.
                 lb_k = ucr_lb_keogh_cumulative(order, t, uo, lo, cb1, j, m, mean, std, bsf);
-                if(lb_k < bsf)
+                if (lb_k < bsf)
                 {
                     /// Take another linear time to compute z_normalization of t.
                     /// Note that for better optimization, this can merge to the previous function.
                     for(k = 0; k < m; k++)
-                    {   
+                    {
                         tz[k] = (t[(k + j)] - mean) / std;
                     }
 
@@ -521,80 +563,90 @@ ucr_query(double *query, int m, double r, double *buffer, int buflen, struct ucr
                     /// qo is the sorted query. tz is unsorted z_normalized data.
                     /// l_buff, u_buff are big envelop for all data in this chunk
                     lb_k2 = ucr_lb_keogh_data_cumulative(order, tz, qo, cb2, l_buff + I, u_buff + I, m, mean, std, bsf);
-                    if(lb_k2 < bsf)
+                    if (lb_k2 < bsf)
                     {
                         /// Choose better lower bound between lb_keogh and lb_keogh2 to be used in early abandoning DTW
                         /// Note that cb and cb2 will be cumulative summed here.
-                        if(lb_k > lb_k2)
+                        if (lb_k > lb_k2)
                         {
                             cb[m - 1] = cb1[m - 1];
                             for(k = m - 2; k >= 0; k--)
-                            {
                                 cb[k] = cb[k + 1] + cb1[k];
-                            }
                         }
                         else
                         {
                             cb[m - 1] = cb2[m - 1];
                             for(k = m - 2; k >= 0; k--)
-                            {
                                 cb[k] = cb[k + 1] + cb2[k];
-                            }
                         }
 
                         /// Compute DTW and early abandoning if possible
                         dist = ucr_dtw(tz, q, cb, m, r, bsf);
 
-                        if(dist < bsf)
+                        if( dist < bsf )
                         {   /// Update bsf
                             /// loc is the real starting location of the nearest neighbor in the file
                             bsf = dist;
                             loc = i - m + 1;
                         }
-                    } 
+                    }
                 }
             }
+
             /// Reduce obsolute points from sum and sum square
             ex -= t[j];
             ex2 -= t[j] * t[j];
         }
     }
 
-ucr_query_cleanup:
-    if(u != NULL)
-        free(u);
-    if(l != NULL)
-        free(l);
-    if(uo != NULL)
-        free(uo);
-    if(lo != NULL)
-        free(lo);
-    if(qo != NULL)
-        free(qo);
+query_execute_cleanup:
+    if(t != NULL)
+        free(t);
+    if(tz != NULL)
+        free(tz);
+    if(l_buff != NULL)
+        free(l_buff);
+    if(u_buff != NULL)
+        free(u_buff);
     if(cb != NULL)
         free(cb);
     if(cb1 != NULL)
         free(cb1);
     if(cb2 != NULL)
         free(cb2);
-    if(tz != NULL)
-        free(tz);
-    if(t != NULL)
-        free(t);
-    if(l_d != NULL)
-        free(l_d);
-    if(u_d != NULL)
-        free(u_d);
-    if(l_buff != NULL)
-        free(l_buff);
-    if(u_buff != NULL)
-        free(u_buff);
 
-    if(loc < 0)
+    if(loc == -1)
+    {
         return loc;
+    }
 
     result->index = loc;
     result->value = sqrt(bsf);
 
     return 0;
+}
+
+int32_t
+ucr_query(double* query, int32_t m, double r, double* values, int32_t vlen, struct ucr_index *result)
+{
+    struct ucr_buffer    *b = NULL;
+    struct ucr_query     *q = NULL;
+    int32_t              e;
+
+    q = ucr_query_new(query, m, r);
+    if(q == NULL)
+        return -1;
+
+    b = (struct ucr_buffer *)malloc(sizeof(struct ucr_buffer));
+    if(b == NULL)
+        return -1;
+
+    b->data = values;
+    b->len = vlen;
+    b->last = vlen - 1;
+
+    e = ucr_query_execute(q, b, result);
+    ucr_query_free(q);
+
+    return e;
 }
